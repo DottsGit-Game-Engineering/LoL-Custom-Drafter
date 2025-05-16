@@ -185,7 +185,7 @@ def show_draft_creator():
     # Reset Button
     if st.button("Start New Draft"):
         initialize_session_state(max_team_rerolls, max_role_rerolls)
-        st.experimental_rerun()
+        st.rerun()
 
     # --- Handle pending reroll actions (fix double-click issue) ---
     if 'pending_reroll_a' in st.session_state:
