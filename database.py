@@ -57,6 +57,16 @@ def init_db():
     conn.commit()
     conn.close()
 
+def _update_session_db_bytes(conn):
+    import io
+    # Save the current in-memory db to bytes and update st.session_state['db_bytes']
+    with open("temp_uploaded.db", "wb") as f:
+        backup_conn = sqlite3.connect("temp_uploaded.db")
+        conn.backup(backup_conn)
+        backup_conn.close()
+    with open("temp_uploaded.db", "rb") as f:
+        st.session_state['db_bytes'] = f.read()
+
 def add_player(name: str, rank: str, primary_champion_1: str = None,
                primary_champion_2: str = None, primary_champion_3: str = None,
                notes: str = None) -> bool:
@@ -71,6 +81,7 @@ def add_player(name: str, rank: str, primary_champion_1: str = None,
         ''', (name, rank, primary_champion_1, primary_champion_2,
               primary_champion_3, notes))
         conn.commit()
+        _update_session_db_bytes(conn)
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -100,6 +111,7 @@ def update_player(player_id: int, name: str, rank: str,
         ''', (name, rank, primary_champion_1, primary_champion_2,
               primary_champion_3, notes, player_id))
         conn.commit()
+        _update_session_db_bytes(conn)
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -112,6 +124,7 @@ def delete_player(player_id: int) -> bool:
         c = conn.cursor()
         c.execute('DELETE FROM players WHERE id = ?', (player_id,))
         conn.commit()
+        _update_session_db_bytes(conn)
         conn.close()
         return True
     except sqlite3.Error:
