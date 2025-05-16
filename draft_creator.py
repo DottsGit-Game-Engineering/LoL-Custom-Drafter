@@ -62,6 +62,11 @@ def generate_bans(players: List[Dict], num_bans: int, additional_random_bans: in
 def show_draft_creator():
     st.title("Custom Game Draft Creator")
     
+    # If no db is loaded, show a message and return
+    if 'db_bytes' not in st.session_state:
+        st.warning("No player database loaded. Please upload a .db file in the Player Management page to begin.")
+        return
+    
     # Configuration Settings
     st.sidebar.header("Configuration")
     num_bans = st.sidebar.number_input("Number of Bans to Select from Pool", min_value=0, max_value=20, value=10)

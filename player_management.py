@@ -2,6 +2,7 @@ import streamlit as st
 import database as db
 from typing import Optional, Dict
 import pandas as pd
+import os
 
 def show_player_management():
     st.title("Player Management")
@@ -43,6 +44,57 @@ def show_player_management():
     
     # View/Modify Players Section
     st.header("Current Player List")
+    
+    # --- Upload DB file section ---
+    if st.session_state.get('db_uploaded', False):
+        st.session_state['db_uploaded'] = False
+        uploaded_db = None
+    else:
+        uploaded_db = st.file_uploader(
+            "Upload a new player database (.db)",
+            type=["db"],
+            help="This will replace the current player database.",
+            accept_multiple_files=False
+        )
+        if uploaded_db is not None:
+            # Check file extension
+            if not uploaded_db.name.lower().endswith('.db'):
+                st.error("Only .db files are allowed.")
+            else:
+                max_size_mb = 5
+                uploaded_db.seek(0, 2)  # Move to end of file
+                size_mb = uploaded_db.tell() / (1024 * 1024)
+                uploaded_db.seek(0)  # Reset pointer
+                if size_mb > max_size_mb:
+                    st.error(f"File is too large. Maximum allowed size is {max_size_mb} MB.")
+                else:
+                    try:
+                        db_bytes = uploaded_db.read()
+                        import sqlite3
+                        # Validate the uploaded DB has the 'players' table
+                        mem_conn = sqlite3.connect(":memory:")
+                        mem_conn.row_factory = sqlite3.Row
+                        with open("temp_uploaded.db", "wb") as tempf:
+                            tempf.write(db_bytes)
+                        tempf = sqlite3.connect("temp_uploaded.db")
+                        try:
+                            tempf.execute("SELECT 1 FROM players LIMIT 1")
+                            tempf.close()
+                            # Load into session
+                            import database
+                            database.load_db_file_to_session(db_bytes)
+                            st.success("Database uploaded and loaded into your session! Reloading...")
+                            st.session_state['db_uploaded'] = True
+                            st.rerun()
+                        except Exception as e:
+                            tempf.close()
+                            st.error(f"Uploaded database is invalid or missing the 'players' table: {e}")
+                    except Exception as e:
+                        st.error(f"Failed to upload database: {e}")
+    if 'db_bytes' not in st.session_state:
+        st.warning("No player database loaded. Please upload a .db file to begin.")
+        return
+    
     players = db.get_all_players()
     
     if players:

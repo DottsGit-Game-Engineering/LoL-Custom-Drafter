@@ -1,6 +1,9 @@
 import sqlite3
 import pandas as pd
 from typing import List, Dict, Optional, Tuple
+import os
+import sys
+import streamlit as st
 
 # Rank to numerical value mapping
 RANK_VALUES = {
@@ -17,10 +20,22 @@ RANK_VALUES = {
 }
 
 def get_db_connection() -> sqlite3.Connection:
-    """Create a database connection."""
-    conn = sqlite3.connect('lol_custom_organizer.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Create a new in-memory database connection from session DB bytes."""
+    if 'db_bytes' not in st.session_state:
+        raise RuntimeError("No database loaded for this session. Please upload a .db file.")
+    import io
+    mem_conn = sqlite3.connect(":memory:")
+    mem_conn.row_factory = sqlite3.Row
+    with open("temp_uploaded.db", "wb") as tempf:
+        tempf.write(st.session_state['db_bytes'])
+    tempf = sqlite3.connect("temp_uploaded.db")
+    tempf.backup(mem_conn)
+    tempf.close()
+    return mem_conn
+
+# Utility to load a db file into session state
+def load_db_file_to_session(db_bytes: bytes):
+    st.session_state['db_bytes'] = db_bytes
 
 def init_db():
     """Initialize the database with required tables."""
