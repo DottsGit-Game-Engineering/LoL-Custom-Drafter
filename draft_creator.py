@@ -106,6 +106,7 @@ def show_draft_creator():
         button_label = "Randomize Teams" if not st.session_state.team_a and not st.session_state.team_b else f"Reroll Teams ({st.session_state.team_rerolls} remaining)"
         st.info(f"Team rerolls remaining: {st.session_state.team_rerolls}")
         if st.button(button_label, disabled=not can_reroll):
+            first_time = not st.session_state.team_a and not st.session_state.team_b
             if skill_balancing:
                 st.session_state.team_a, st.session_state.team_b = db.get_balanced_teams(
                     [p['id'] for p in st.session_state.selected_players]
@@ -115,12 +116,14 @@ def show_draft_creator():
                 random.shuffle(players)
                 st.session_state.team_a = players[:5]
                 st.session_state.team_b = players[5:]
-            st.session_state.team_rerolls -= 1
+            if not first_time:
+                st.session_state.team_rerolls -= 1
             st.session_state.team_a_roles = {}
             st.session_state.team_b_roles = {}
             st.session_state.banned_champions = []
             st.session_state.role_rerolls_a = max_role_rerolls
             st.session_state.role_rerolls_b = max_role_rerolls
+            st.rerun()
         
         # Display teams
         col1, col2 = st.columns(2)
