@@ -116,17 +116,17 @@ def show_player_management():
                         mem_conn.execute('''INSERT INTO players (name, rank, primary_champion_1, primary_champion_2, primary_champion_3, notes) VALUES (?, ?, ?, ?, ?, ?)''',
                             (row['name'], row['rank'], row['primary_champion_1'], row['primary_champion_2'], row['primary_champion_3'], row['notes']))
                     mem_conn.commit()
-                    # Export to bytes
-                    with open("temp_uploaded.db", "wb") as f:
-                        for line in mem_conn.iterdump():
-                            f.write((line + '\n').encode())
-                    # Actually, use backup to get a real .db file
-                    temp_db = sqlite3.connect("temp_uploaded.db")
-                    out_bytes = io.BytesIO()
-                    backup_conn = sqlite3.connect(":memory:")
-                    temp_db.backup(backup_conn)
-                    with open("temp_uploaded.db", "rb") as f:
+                    # Export to bytes using backup (correct way)
+                    temp_db_path = "temp_uploaded.db"
+                    # Remove temp file if it exists
+                    if os.path.exists(temp_db_path):
+                        os.remove(temp_db_path)
+                    temp_db = sqlite3.connect(temp_db_path)
+                    mem_conn.backup(temp_db)
+                    temp_db.close()
+                    with open(temp_db_path, "rb") as f:
                         csv_db_bytes = f.read()
+                    os.remove(temp_db_path)
                     import database
                     database.load_db_file_to_session(csv_db_bytes)
                     st.success("CSV uploaded and loaded into your session as a new database! Reloading...")
