@@ -3,6 +3,9 @@ import database as db
 from typing import Optional, Dict
 import pandas as pd
 import os
+import sqlite3
+import io
+import base64
 
 def show_player_management():
     st.title("Player Management")
@@ -45,22 +48,21 @@ def show_player_management():
     # View/Modify Players Section
     st.header("Current Player List")
     
-    # --- Upload DB file section ---
+    # --- Upload DB/CSV file section ---
     if st.session_state.get('db_uploaded', False):
         st.session_state['db_uploaded'] = False
         uploaded_db = None
     else:
         uploaded_db = st.file_uploader(
-            "Upload a new player database (.db)",
-            type=["db"],
-            help="This will replace the current player database.",
+            "Upload a new player database (.db or .csv)",
+            type=["db", "csv"],
+            help="This will replace the current player database. Accepts .db or .csv files.",
             accept_multiple_files=False
         )
         if uploaded_db is not None:
-            # Check file extension
-            if not uploaded_db.name.lower().endswith('.db'):
-                st.error("Only .db files are allowed.")
-            else:
+            ext = uploaded_db.name.lower().split('.')[-1]
+            if ext == 'db':
+                # Check file extension
                 max_size_mb = 5
                 uploaded_db.seek(0, 2)  # Move to end of file
                 size_mb = uploaded_db.tell() / (1024 * 1024)
@@ -70,7 +72,6 @@ def show_player_management():
                 else:
                     try:
                         db_bytes = uploaded_db.read()
-                        import sqlite3
                         # Validate the uploaded DB has the 'players' table
                         mem_conn = sqlite3.connect(":memory:")
                         mem_conn.row_factory = sqlite3.Row
@@ -91,10 +92,63 @@ def show_player_management():
                             st.error(f"Uploaded database is invalid or missing the 'players' table: {e}")
                     except Exception as e:
                         st.error(f"Failed to upload database: {e}")
+            elif ext == 'csv':
+                try:
+                    df = pd.read_csv(uploaded_db)
+                    required_cols = ["name", "rank", "primary_champion_1", "primary_champion_2", "primary_champion_3", "notes"]
+                    for col in required_cols:
+                        if col not in df.columns:
+                            st.error(f"CSV is missing required column: {col}")
+                            return
+                    # Create new in-memory db and insert data
+                    mem_conn = sqlite3.connect(":memory:")
+                    mem_conn.row_factory = sqlite3.Row
+                    mem_conn.execute('''CREATE TABLE players (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL UNIQUE,
+                        rank TEXT NOT NULL,
+                        primary_champion_1 TEXT,
+                        primary_champion_2 TEXT,
+                        primary_champion_3 TEXT,
+                        notes TEXT
+                    )''')
+                    for _, row in df.iterrows():
+                        mem_conn.execute('''INSERT INTO players (name, rank, primary_champion_1, primary_champion_2, primary_champion_3, notes) VALUES (?, ?, ?, ?, ?, ?)''',
+                            (row['name'], row['rank'], row['primary_champion_1'], row['primary_champion_2'], row['primary_champion_3'], row['notes']))
+                    mem_conn.commit()
+                    # Export to bytes
+                    with open("temp_uploaded.db", "wb") as f:
+                        for line in mem_conn.iterdump():
+                            f.write((line + '\n').encode())
+                    # Actually, use backup to get a real .db file
+                    temp_db = sqlite3.connect("temp_uploaded.db")
+                    out_bytes = io.BytesIO()
+                    backup_conn = sqlite3.connect(":memory:")
+                    temp_db.backup(backup_conn)
+                    with open("temp_uploaded.db", "rb") as f:
+                        csv_db_bytes = f.read()
+                    import database
+                    database.load_db_file_to_session(csv_db_bytes)
+                    st.success("CSV uploaded and loaded into your session as a new database! Reloading...")
+                    st.session_state['db_uploaded'] = True
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to process CSV: {e}")
+            else:
+                st.error("Only .db or .csv files are allowed.")
     if 'db_bytes' not in st.session_state:
-        st.warning("No player database loaded. Please upload a .db file to begin.")
+        st.warning("No player database loaded. Please upload a .db or .csv file to begin.")
         return
-    
+
+    # --- Export DB button ---
+    db_bytes = st.session_state['db_bytes']
+    st.download_button(
+        label="Export Current Database (.db)",
+        data=db_bytes,
+        file_name="exported_lol_custom_organizer.db",
+        mime="application/octet-stream"
+    )
+
     players = db.get_all_players()
     
     if players:
