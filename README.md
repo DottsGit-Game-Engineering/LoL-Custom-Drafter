@@ -11,9 +11,10 @@ A Streamlit application for organizing custom League of Legends games with featu
 
 ## Web Hosted by Streamlit
 Here is a publicly available web hosted version of the tool if you don't want to set it up locally.
+
 https://lol-custom-drafter.streamlit.app/
 
-## Setup
+## Local Setup
 
 1. Install Python 3.8 or higher
 2. Install dependencies:
