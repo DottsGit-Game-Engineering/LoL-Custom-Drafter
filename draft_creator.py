@@ -131,13 +131,22 @@ def show_draft_creator():
                 st.session_state.team_a = [team_a_captain] + team_a_rest
                 st.session_state.team_b = [team_b_captain] + team_b_rest
             else:
-                # Keep captains fixed, reroll the rest
+                # Keep captains fixed if possible, otherwise pick a new captain from the team
                 team_a_captain_name = st.session_state.team_a_captain
                 team_b_captain_name = st.session_state.team_b_captain
-                team_a_captain = next(p for p in team_a if p['name'] == team_a_captain_name)
-                team_b_captain = next(p for p in team_b if p['name'] == team_b_captain_name)
-                team_a_rest = [p for p in team_a if p['name'] != team_a_captain_name]
-                team_b_rest = [p for p in team_b if p['name'] != team_b_captain_name]
+
+                # Find captains in the new teams, or pick a new one if not present
+                team_a_captain = next((p for p in team_a if p['name'] == team_a_captain_name), None)
+                if team_a_captain is None:
+                    team_a_captain = random.choice(team_a)
+                    st.session_state.team_a_captain = team_a_captain['name']
+                team_b_captain = next((p for p in team_b if p['name'] == team_b_captain_name), None)
+                if team_b_captain is None:
+                    team_b_captain = random.choice(team_b)
+                    st.session_state.team_b_captain = team_b_captain['name']
+
+                team_a_rest = [p for p in team_a if p['name'] != st.session_state.team_a_captain]
+                team_b_rest = [p for p in team_b if p['name'] != st.session_state.team_b_captain]
                 random.shuffle(team_a_rest)
                 random.shuffle(team_b_rest)
                 st.session_state.team_a = [team_a_captain] + team_a_rest
