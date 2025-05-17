@@ -1,14 +1,13 @@
 import streamlit as st
-import database as db
-from player_management import show_player_management
-from draft_creator import show_draft_creator
-
-# Set page config
 st.set_page_config(
     page_title="LoL Custom Game Organizer",
     page_icon="🎮",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
+import database as db
+from player_management import show_player_management
+from draft_creator import show_draft_creator
 
 # Tab navigation at the top
 TABS = ["Player Management", "Draft Creator"]
