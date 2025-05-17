@@ -13,6 +13,9 @@ import re
 def show_player_management():
     st.title("Player Management")
     
+    # Always load champions at the start so it's available everywhere
+    champions = db.get_champions()
+    
     # Initialize session state for editing and add player form expansion
     if 'editing_player' not in st.session_state:
         st.session_state.editing_player = None
@@ -28,7 +31,6 @@ def show_player_management():
             name = st.text_input("Player Name")
             rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
             
-            champions = db.get_champions()
             primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
             primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
             primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
