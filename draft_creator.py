@@ -72,7 +72,7 @@ def show_draft_creator():
     # Configuration Settings
     st.sidebar.header("Configuration")
     num_bans = st.sidebar.number_input("Number of Bans to Select from Pool", min_value=0, max_value=20, value=10)
-    skill_balancing = st.sidebar.checkbox("Attempt Skill Balancing for Teams", value=True)
+    skill_balancing = st.sidebar.checkbox("Attempt Skill Balancing for Teams", value=False)
     max_team_rerolls = st.sidebar.number_input("Max Team Rerolls Allowed", min_value=0, max_value=5, value=2)
     max_role_rerolls = st.sidebar.number_input("Max Role Rerolls Per Team", min_value=0, max_value=5, value=2)
     additional_random_bans = st.sidebar.number_input("Number of Additional Random Bans", min_value=0, max_value=10, value=0)
