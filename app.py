@@ -10,12 +10,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# Sidebar navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Player Management", "Draft Creator"])
+# Tab navigation at the top
+TABS = ["Player Management", "Draft Creator"]
+tab_objs = st.tabs(TABS)
 
-# Main content
-if page == "Player Management":
+with tab_objs[0]:
     show_player_management()
-else:
+with tab_objs[1]:
     show_draft_creator() 

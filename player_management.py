@@ -13,43 +13,49 @@ import re
 def show_player_management():
     st.title("Player Management")
     
-    # Initialize session state for editing
+    # Initialize session state for editing and add player form expansion
     if 'editing_player' not in st.session_state:
         st.session_state.editing_player = None
-    
-    # Add New Player Section
-    st.header("Add New Player")
-    with st.form("add_player_form"):
-        name = st.text_input("Player Name")
-        rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
-        
-        champions = db.get_champions()
-        primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
-        primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
-        primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
-        
-        notes = st.text_area("Notes (Optional)")
-        opgg_link = st.text_input("OP.GG Link (Optional)")
-        
-        submitted = st.form_submit_button("Add Player")
-        if submitted:
-            if name:
-                success = db.add_player(
-                    name=name,
-                    rank=rank,
-                    primary_champion_1=primary_champion_1 if primary_champion_1 else None,
-                    primary_champion_2=primary_champion_2 if primary_champion_2 else None,
-                    primary_champion_3=primary_champion_3 if primary_champion_3 else None,
-                    notes=notes if notes else None,
-                    opgg_link=opgg_link if opgg_link else None
-                )
-                if success:
-                    st.success(f"Player {name} added successfully!")
+    if 'show_add_player_form' not in st.session_state:
+        st.session_state.show_add_player_form = False
+
+    # Collapsible Add New Player Section
+    if st.button("Add New Player", key="expand_add_player_form"):
+        st.session_state.show_add_player_form = not st.session_state.show_add_player_form
+
+    if st.session_state.show_add_player_form:
+        with st.form("add_player_form"):
+            name = st.text_input("Player Name")
+            rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
+            
+            champions = db.get_champions()
+            primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
+            primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
+            primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
+            
+            notes = st.text_area("Notes (Optional)")
+            opgg_link = st.text_input("OP.GG Link (Optional)")
+            
+            submitted = st.form_submit_button("Add Player")
+            if submitted:
+                if name:
+                    success = db.add_player(
+                        name=name,
+                        rank=rank,
+                        primary_champion_1=primary_champion_1 if primary_champion_1 else None,
+                        primary_champion_2=primary_champion_2 if primary_champion_2 else None,
+                        primary_champion_3=primary_champion_3 if primary_champion_3 else None,
+                        notes=notes if notes else None,
+                        opgg_link=opgg_link if opgg_link else None
+                    )
+                    if success:
+                        st.success(f"Player {name} added successfully!")
+                        st.session_state.show_add_player_form = False
+                    else:
+                        st.error("A player with this name already exists.")
                 else:
-                    st.error("A player with this name already exists.")
-            else:
-                st.error("Player name is required.")
-    
+                    st.error("Player name is required.")
+
     # View/Modify Players Section
     st.header("Current Player List")
     
