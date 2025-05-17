@@ -6,6 +6,9 @@ import os
 import sqlite3
 import io
 import base64
+import requests
+from bs4 import BeautifulSoup
+import re
 
 def show_player_management():
     st.title("Player Management")
@@ -21,11 +24,12 @@ def show_player_management():
         rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
         
         champions = db.get_champions()
-        primary_champion_1 = st.selectbox("Primary Champion 1", [""] + champions)
-        primary_champion_2 = st.selectbox("Primary Champion 2", [""] + champions)
-        primary_champion_3 = st.selectbox("Primary Champion 3 (Optional)", [""] + champions)
+        primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
+        primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
+        primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
         
         notes = st.text_area("Notes (Optional)")
+        opgg_link = st.text_input("OP.GG Link (Optional)")
         
         submitted = st.form_submit_button("Add Player")
         if submitted:
@@ -36,7 +40,8 @@ def show_player_management():
                     primary_champion_1=primary_champion_1 if primary_champion_1 else None,
                     primary_champion_2=primary_champion_2 if primary_champion_2 else None,
                     primary_champion_3=primary_champion_3 if primary_champion_3 else None,
-                    notes=notes if notes else None
+                    notes=notes if notes else None,
+                    opgg_link=opgg_link if opgg_link else None
                 )
                 if success:
                     st.success(f"Player {name} added successfully!")
@@ -140,14 +145,18 @@ def show_player_management():
         st.warning("No player database loaded. Please upload a .db or .csv file to begin.")
         return
 
-    # --- Export DB button ---
-    db_bytes = st.session_state['db_bytes']
-    st.download_button(
-        label="Export Current Database (.db)",
-        data=db_bytes,
-        file_name="exported_lol_custom_organizer.db",
-        mime="application/octet-stream"
-    )
+    # --- Export DB button and Update Ranks button ---
+    col_left, col_right = st.columns([1, 1])
+    with col_left:
+        st.download_button(
+            label="Export Current Database (.db)",
+            data=st.session_state['db_bytes'],
+            file_name="exported_lol_custom_organizer.db",
+            mime="application/octet-stream"
+        )
+    with col_right:
+        if st.button("Update Ranks"):
+            update_ranks_from_opgg()
 
     players = db.get_all_players()
     
@@ -164,10 +173,11 @@ def show_player_management():
             column_config={
                 "name": st.column_config.TextColumn("Name", required=True),
                 "rank": st.column_config.SelectboxColumn("Rank", options=list(db.RANK_VALUES.keys()), required=True),
-                "primary_champion_1": st.column_config.SelectboxColumn("Primary Champion 1", options=champions),
-                "primary_champion_2": st.column_config.SelectboxColumn("Primary Champion 2", options=champions),
-                "primary_champion_3": st.column_config.SelectboxColumn("Primary Champion 3", options=champions),
-                "notes": st.column_config.TextColumn("Notes")
+                "primary_champion_1": st.column_config.SelectboxColumn("Primary Champion", options=champions),
+                "primary_champion_2": st.column_config.SelectboxColumn("Secondary Champion", options=champions),
+                "primary_champion_3": st.column_config.SelectboxColumn("Third Champion (Optional)", options=champions),
+                "notes": st.column_config.TextColumn("Notes"),
+                "opgg_link": st.column_config.TextColumn("OP.GG Link")
             }
         )
         
@@ -183,7 +193,8 @@ def show_player_management():
                         primary_champion_1=row['primary_champion_1'] if row['primary_champion_1'] else None,
                         primary_champion_2=row['primary_champion_2'] if row['primary_champion_2'] else None,
                         primary_champion_3=row['primary_champion_3'] if row['primary_champion_3'] else None,
-                        notes=row['notes'] if row['notes'] else None
+                        notes=row['notes'] if row['notes'] else None,
+                        opgg_link=row['opgg_link'] if 'opgg_link' in row and row['opgg_link'] else None
                     )
                     if success:
                         st.success(f"Player {row['name']} updated successfully!")
@@ -191,3 +202,67 @@ def show_player_management():
                         st.error(f"Failed to update player {row['name']}.")
     else:
         st.info("No players added yet. Use the form above to add players.") 
+
+def extract_rank_from_soup(soup):
+    import re
+    possible_ranks = [
+        "Iron", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond", "Master", "Grandmaster", "Challenger"
+    ]
+    # Regex for valid ranks, case-insensitive
+    rank_pattern = re.compile(
+        r'^(iron|bronze|silver|gold|platinum|emerald|diamond) [1-4]$|^(master|grandmaster|challenger)$',
+        re.IGNORECASE
+    )
+    for tag in soup.find_all(text=True):
+        text = tag.strip()
+        if not text:
+            continue
+        match = rank_pattern.match(text)
+        if match:
+            # If it's a tier with division (e.g., 'Emerald 1'), return only the tier part
+            tier = match.group(1) or match.group(2)
+            if tier:
+                return tier.title()
+            # If it's a top tier (no division), return as is
+            return text.title()
+    return None
+
+def update_ranks_from_opgg():
+    players = db.get_all_players()
+    updated = 0
+    for player in players:
+        opgg_link = player.get('opgg_link')
+        if opgg_link:
+            try:
+                response = requests.get(opgg_link, headers={"User-Agent": "Mozilla/5.0"})
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    # Use the robust extraction function
+                    rank = extract_rank_from_soup(soup)
+                    if rank:
+                        # Only update if the rank is valid and different
+                        if rank != player['rank']:
+                            db.update_player(
+                                player_id=player['id'],
+                                name=player['name'],
+                                rank=rank,
+                                primary_champion_1=player['primary_champion_1'],
+                                primary_champion_2=player['primary_champion_2'],
+                                primary_champion_3=player['primary_champion_3'],
+                                notes=player['notes'],
+                                opgg_link=player['opgg_link']
+                            )
+                            updated += 1
+                            st.success(f"Updated {player['name']} to {rank}")
+                        else:
+                            st.info(f"No rank change for {player['name']}")
+                    else:
+                        st.warning(f"Could not find rank for {player['name']} (check OP.GG link)")
+                else:
+                    st.error(f"Failed to fetch OP.GG for {player['name']} (HTTP {response.status_code})")
+            except Exception as e:
+                st.error(f"Error updating {player['name']}: {e}")
+    if updated == 0:
+        st.info("No ranks were updated.")
+    else:
+        st.success(f"Ranks updated for {updated} player(s).") 

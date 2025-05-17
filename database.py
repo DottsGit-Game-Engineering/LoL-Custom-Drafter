@@ -50,7 +50,8 @@ def init_db():
             primary_champion_1 TEXT,
             primary_champion_2 TEXT,
             primary_champion_3 TEXT,
-            notes TEXT
+            notes TEXT,
+            opgg_link TEXT
         )
     ''')
     
@@ -69,17 +70,17 @@ def _update_session_db_bytes(conn):
 
 def add_player(name: str, rank: str, primary_champion_1: str = None,
                primary_champion_2: str = None, primary_champion_3: str = None,
-               notes: str = None) -> bool:
+               notes: str = None, opgg_link: str = None) -> bool:
     """Add a new player to the database."""
     try:
         conn = get_db_connection()
         c = conn.cursor()
         c.execute('''
             INSERT INTO players (name, rank, primary_champion_1, primary_champion_2,
-                               primary_champion_3, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+                               primary_champion_3, notes, opgg_link)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (name, rank, primary_champion_1, primary_champion_2,
-              primary_champion_3, notes))
+              primary_champion_3, notes, opgg_link))
         conn.commit()
         _update_session_db_bytes(conn)
         conn.close()
@@ -98,7 +99,7 @@ def get_all_players() -> List[Dict]:
 
 def update_player(player_id: int, name: str, rank: str,
                  primary_champion_1: str = None, primary_champion_2: str = None,
-                 primary_champion_3: str = None, notes: str = None) -> bool:
+                 primary_champion_3: str = None, notes: str = None, opgg_link: str = None) -> bool:
     """Update an existing player's information."""
     try:
         conn = get_db_connection()
@@ -106,10 +107,10 @@ def update_player(player_id: int, name: str, rank: str,
         c.execute('''
             UPDATE players
             SET name = ?, rank = ?, primary_champion_1 = ?, primary_champion_2 = ?,
-                primary_champion_3 = ?, notes = ?
+                primary_champion_3 = ?, notes = ?, opgg_link = ?
             WHERE id = ?
         ''', (name, rank, primary_champion_1, primary_champion_2,
-              primary_champion_3, notes, player_id))
+              primary_champion_3, notes, opgg_link, player_id))
         conn.commit()
         _update_session_db_bytes(conn)
         conn.close()
