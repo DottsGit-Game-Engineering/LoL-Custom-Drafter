@@ -17,6 +17,8 @@ def initialize_session_state(team_rerolls=2, role_rerolls=2):
     st.session_state.team_rerolls = team_rerolls
     st.session_state.role_rerolls_a = role_rerolls
     st.session_state.role_rerolls_b = role_rerolls
+    st.session_state.team_a_captain = None
+    st.session_state.team_b_captain = None
 
 def randomize_roles(team: List[Dict]) -> Dict[str, str]:
     """Randomly assign roles to team members."""
@@ -108,15 +110,38 @@ def show_draft_creator():
         if st.button(button_label, disabled=not can_reroll):
             first_time = not st.session_state.team_a and not st.session_state.team_b
             if skill_balancing:
-                st.session_state.team_a, st.session_state.team_b = db.get_balanced_teams(
+                team_a, team_b = db.get_balanced_teams(
                     [p['id'] for p in st.session_state.selected_players]
                 )
             else:
                 players = st.session_state.selected_players.copy()
                 random.shuffle(players)
-                st.session_state.team_a = players[:5]
-                st.session_state.team_b = players[5:]
-            if not first_time:
+                team_a = players[:5]
+                team_b = players[5:]
+            # Captain logic
+            if st.session_state.team_a_captain is None or st.session_state.team_b_captain is None:
+                # First time ever, or after a full reset
+                st.session_state.team_a_captain = random.choice(team_a)['name']
+                st.session_state.team_b_captain = random.choice(team_b)['name']
+                # Always put captain at the top
+                team_a_captain = next(p for p in team_a if p['name'] == st.session_state.team_a_captain)
+                team_b_captain = next(p for p in team_b if p['name'] == st.session_state.team_b_captain)
+                team_a_rest = [p for p in team_a if p['name'] != st.session_state.team_a_captain]
+                team_b_rest = [p for p in team_b if p['name'] != st.session_state.team_b_captain]
+                st.session_state.team_a = [team_a_captain] + team_a_rest
+                st.session_state.team_b = [team_b_captain] + team_b_rest
+            else:
+                # Keep captains fixed, reroll the rest
+                team_a_captain_name = st.session_state.team_a_captain
+                team_b_captain_name = st.session_state.team_b_captain
+                team_a_captain = next(p for p in team_a if p['name'] == team_a_captain_name)
+                team_b_captain = next(p for p in team_b if p['name'] == team_b_captain_name)
+                team_a_rest = [p for p in team_a if p['name'] != team_a_captain_name]
+                team_b_rest = [p for p in team_b if p['name'] != team_b_captain_name]
+                random.shuffle(team_a_rest)
+                random.shuffle(team_b_rest)
+                st.session_state.team_a = [team_a_captain] + team_a_rest
+                st.session_state.team_b = [team_b_captain] + team_b_rest
                 st.session_state.team_rerolls -= 1
             st.session_state.team_a_roles = {}
             st.session_state.team_b_roles = {}
@@ -129,13 +154,17 @@ def show_draft_creator():
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("Team A")
-            for player in st.session_state.team_a:
-                st.write(f"• {player['name']} ({player['rank']})")
+            if st.session_state.team_a:
+                for idx, player in enumerate(st.session_state.team_a):
+                    label = " (Captain)" if player['name'] == st.session_state.team_a_captain else ""
+                    st.write(f"• {player['name']} ({player['rank']}){label}")
         
         with col2:
             st.subheader("Team B")
-            for player in st.session_state.team_b:
-                st.write(f"• {player['name']} ({player['rank']})")
+            if st.session_state.team_b:
+                for idx, player in enumerate(st.session_state.team_b):
+                    label = " (Captain)" if player['name'] == st.session_state.team_b_captain else ""
+                    st.write(f"• {player['name']} ({player['rank']}){label}")
     
     # Step 3: Role Assignment
     if st.session_state.team_a and st.session_state.team_b:
