@@ -265,4 +265,5 @@ def update_ranks_from_opgg():
     if updated == 0:
         st.info("No ranks were updated.")
     else:
-        st.success(f"Ranks updated for {updated} player(s).") 
+        st.success(f"Ranks updated for {updated} player(s).")
+        st.rerun()
