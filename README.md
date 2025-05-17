@@ -9,6 +9,10 @@ A Streamlit application for organizing custom League of Legends games with featu
 - Role Assignment: Randomly assign roles to players
 - Champion Bans: Generate random bans from players' primary champions
 
+## Web Hosted by Streamlit
+Here is a publicly available web hosted version of the tool if you don't want to set it up locally.
+https://lol-custom-drafter.streamlit.app/
+
 ## Setup
 
 1. Install Python 3.8 or higher
