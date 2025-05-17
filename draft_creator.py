@@ -62,20 +62,37 @@ def generate_bans(players: List[Dict], num_bans: int, additional_random_bans: in
     return bans
 
 def show_draft_creator():
+    # Hide the sidebar by default (in case Streamlit renders this file outside the tab context)
+    st.markdown(
+        """
+        <style>
+        [data-testid=\"stSidebar\"] { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    # Show the sidebar only when this function is called
+    st.markdown(
+        """
+        <style>
+        [data-testid=\"stSidebar\"] { display: block !important; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     st.title("Custom Game Draft Creator")
     
-    # If no db is loaded, show a message and return
-    if 'db_bytes' not in st.session_state:
-        st.warning("No player database loaded. Please upload a .db file in the Player Management page to begin.")
-        return
-    
-    # Configuration Settings
     st.sidebar.header("Configuration")
     num_bans = st.sidebar.number_input("Number of Bans to Select from Pool", min_value=0, max_value=20, value=10)
     skill_balancing = st.sidebar.checkbox("Attempt Skill Balancing for Teams", value=False)
     max_team_rerolls = st.sidebar.number_input("Max Team Rerolls Allowed", min_value=0, max_value=5, value=2)
     max_role_rerolls = st.sidebar.number_input("Max Role Rerolls Per Team", min_value=0, max_value=5, value=2)
     additional_random_bans = st.sidebar.number_input("Number of Additional Random Bans", min_value=0, max_value=10, value=0)
+
+    # If no db is loaded, show a message and return
+    if 'db_bytes' not in st.session_state:
+        st.warning("No player database loaded. Please upload a .db file in the Player Management page to begin.")
+        return
     
     # Initialize session state if not present
     if 'team_rerolls' not in st.session_state or 'role_rerolls_a' not in st.session_state or 'role_rerolls_b' not in st.session_state:

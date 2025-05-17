@@ -10,46 +10,84 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
+def get_champion_list():
+    # Try to get from DB, else from CSV
+    if 'db_bytes' in st.session_state:
+        return db.get_champions()
+    else:
+        try:
+            df = pd.read_csv('champions.csv')
+            return df['ChampionName'].dropna().tolist()
+        except Exception:
+            return []
+
 def show_player_management():
     st.title("Player Management")
     
-    # Initialize session state for editing
+    # Always load champions at the start so it's available everywhere
+    champions = get_champion_list()
+    
+    # Initialize session state for editing and add player form expansion
     if 'editing_player' not in st.session_state:
         st.session_state.editing_player = None
-    
-    # Add New Player Section
-    st.header("Add New Player")
-    with st.form("add_player_form"):
-        name = st.text_input("Player Name")
-        rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
-        
-        champions = db.get_champions()
-        primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
-        primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
-        primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
-        
-        notes = st.text_area("Notes (Optional)")
-        opgg_link = st.text_input("OP.GG Link (Optional)")
-        
-        submitted = st.form_submit_button("Add Player")
-        if submitted:
-            if name:
-                success = db.add_player(
-                    name=name,
-                    rank=rank,
-                    primary_champion_1=primary_champion_1 if primary_champion_1 else None,
-                    primary_champion_2=primary_champion_2 if primary_champion_2 else None,
-                    primary_champion_3=primary_champion_3 if primary_champion_3 else None,
-                    notes=notes if notes else None,
-                    opgg_link=opgg_link if opgg_link else None
-                )
-                if success:
-                    st.success(f"Player {name} added successfully!")
+    if 'show_add_player_form' not in st.session_state:
+        st.session_state.show_add_player_form = False
+    if 'temp_players' not in st.session_state:
+        st.session_state.temp_players = []
+
+    # Collapsible Add New Player Section
+    if st.button("Add New Player", key="expand_add_player_form"):
+        st.session_state.show_add_player_form = not st.session_state.show_add_player_form
+
+    if st.session_state.show_add_player_form:
+        with st.form("add_player_form"):
+            name = st.text_input("Player Name")
+            rank = st.selectbox("Rank", list(db.RANK_VALUES.keys()))
+            
+            primary_champion_1 = st.selectbox("Primary Champion", [""] + champions)
+            primary_champion_2 = st.selectbox("Secondary Champion", [""] + champions)
+            primary_champion_3 = st.selectbox("Third Champion (Optional)", [""] + champions)
+            
+            notes = st.text_area("Notes (Optional)")
+            opgg_link = st.text_input("OP.GG Link (Optional)")
+            
+            submitted = st.form_submit_button("Add Player")
+            if submitted:
+                if name:
+                    if 'db_bytes' in st.session_state:
+                        success = db.add_player(
+                            name=name,
+                            rank=rank,
+                            primary_champion_1=primary_champion_1 if primary_champion_1 else None,
+                            primary_champion_2=primary_champion_2 if primary_champion_2 else None,
+                            primary_champion_3=primary_champion_3 if primary_champion_3 else None,
+                            notes=notes if notes else None,
+                            opgg_link=opgg_link if opgg_link else None
+                        )
+                        if success:
+                            st.success(f"Player {name} added successfully!")
+                            st.session_state.show_add_player_form = False
+                        else:
+                            st.error("A player with this name already exists.")
+                    else:
+                        # Add to temp_players list
+                        if any(p['name'] == name for p in st.session_state.temp_players):
+                            st.error("A player with this name already exists in the temporary list.")
+                        else:
+                            st.session_state.temp_players.append({
+                                'name': name,
+                                'rank': rank,
+                                'primary_champion_1': primary_champion_1 if primary_champion_1 else None,
+                                'primary_champion_2': primary_champion_2 if primary_champion_2 else None,
+                                'primary_champion_3': primary_champion_3 if primary_champion_3 else None,
+                                'notes': notes if notes else None,
+                                'opgg_link': opgg_link if opgg_link else None
+                            })
+                            st.success(f"Player {name} added to temporary list!")
+                            st.session_state.show_add_player_form = False
                 else:
-                    st.error("A player with this name already exists.")
-            else:
-                st.error("Player name is required.")
-    
+                    st.error("Player name is required.")
+
     # View/Modify Players Section
     st.header("Current Player List")
     
@@ -142,7 +180,13 @@ def show_player_management():
             else:
                 st.error("Only .db or .csv files are allowed.")
     if 'db_bytes' not in st.session_state:
-        st.warning("No player database loaded. Please upload a .db or .csv file to begin.")
+        st.warning("No player database loaded. Players will not be saved permanently. Upload a .db or .csv file to enable full features.")
+        # Show temp_players as a DataFrame
+        if st.session_state.temp_players:
+            df = pd.DataFrame(st.session_state.temp_players)
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No players added yet. Use the form above to add players.")
         return
 
     # --- Export DB button and Update Ranks button ---
